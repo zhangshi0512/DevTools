@@ -2,6 +2,45 @@
 
 Welcome to the DevTools repository! This collection of development tools is designed to facilitate various tasks related to document processing, image manipulation, and advanced retrieval and generative systems. Below is an overview of the main components within this repository.
 
+## Setup
+
+Before running the scripts in this repository, you may need to set up your environment and install necessary dependencies. Depending on the script, the requirements may vary, but here are some common steps to get started:
+
+1. Ensure that you have Python installed on your system. These scripts are compatible with Python 3.6 and above. You can download Python from [the official website](https://www.python.org/downloads/).
+
+2. Clone the repository to your local machine:
+
+   ```
+   git clone https://github.com/your-username/DevTools.git
+   ```
+
+3. Navigate to the repository directory:
+
+   ```
+   cd DevTools
+   ```
+
+4. It's recommended to use a virtual environment to manage your dependencies. Create and activate a virtual environment:
+
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+   ```
+
+5. Install the required packages. The specific dependencies for each script are listed in their respective directories, typically in a file named `requirements.txt`. You can install these dependencies using pip:
+
+   ```
+   pip install -r path/to/requirements.txt
+   ```
+
+   For example, if you're planning to use the `document_process` tools, and there's a `requirements.txt` in that directory, you would run:
+
+   ```
+   pip install -r document_process/requirements.txt
+   ```
+
+6. Once the dependencies are installed, you're ready to run the scripts as per their usage instructions.
+
 ## Document Processing
 
 - **PDF2TEXT.py**: A handy script for converting PDF documents into text format. This tool can be particularly useful for extracting readable text from scanned PDFs or digital documents that need to be processed or analyzed as text data.
@@ -35,7 +74,7 @@ The RAG (Retrieval-Augmented Generation) System is a more complex suite within t
 
 ## Getting Started
 
-To get started with the DevTools, clone this repository to your local machine and navigate to the component you're interested in. Each script is designed to be self-contained, and you can run them individually according to your needs.
+After setting up your environment and installing the necessary dependencies, you can navigate to the component you're interested in and follow the specific usage instructions provided there.
 
 ## Contributions
 

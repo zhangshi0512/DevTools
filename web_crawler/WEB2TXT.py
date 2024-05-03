@@ -40,7 +40,7 @@ class App:
             response = requests.get(url)
             soup = BeautifulSoup(response.text, 'html.parser')
             links = soup.find_all('a')
-            with open(self.full_path, 'w') as file:
+            with open(self.full_path, 'w', encoding='utf-8') as file:
                 for link in links:
                     if 'href' in link.attrs:
                         link_text = link.get_text()

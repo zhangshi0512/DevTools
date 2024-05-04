@@ -1,3 +1,15 @@
+"""
+This is a web crawler using Selenium. 
+It takes a URL as input, crawls the web page, 
+and saves the text content to a file.
+
+This fine tuned version of the code uses the Suzhou Culture Library website as an example. 
+The website has a list of news articles, and each article has a link to the full text. 
+The code extracts the text content of each article and saves it to a file.
+
+https://suzhouculture.szlib.com/dfwxjb/
+"""
+
 import tkinter as tk
 from tkinter import filedialog
 from selenium import webdriver

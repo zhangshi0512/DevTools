@@ -9,7 +9,7 @@ import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
-def pdf_to_text(pdf_path, output_path, language='eng'):
+def pdf_to_text(pdf_path, output_path, language='eng', layout='horizontal'):
     doc = fitz.open(pdf_path)
     total_pages = len(doc)
 
@@ -18,7 +18,14 @@ def pdf_to_text(pdf_path, output_path, language='eng'):
         pix = page.get_pixmap()
         img_path = f"temp_{page_num}.png"
         pix.save(img_path)
-        text = pytesseract.image_to_string(Image.open(img_path), lang=language)
+
+        if layout == 'vertical':
+            text = process_vertical_text(Image.open(img_path), language)
+        elif layout == 'double_page':
+            text = process_double_page(Image.open(img_path), language)
+        else:
+            text = pytesseract.image_to_string(
+                Image.open(img_path), lang=language)
 
         with open(output_path, "a", encoding="utf-8") as text_file:
             text_file.write(text)
@@ -28,6 +35,30 @@ def pdf_to_text(pdf_path, output_path, language='eng'):
 
     doc.close()
     messagebox.showinfo("Success", "PDF converted to text successfully!")
+
+
+def process_vertical_text(image, language):
+    raw_text = pytesseract.image_to_string(
+        image, lang=language, config='--psm 5')
+    lines = raw_text.split('\n')
+    processed_lines = []
+    for line in lines:
+        if line.strip():
+            processed_lines.append(''.join(line.strip().split()))
+    final_text = '\n'.join(processed_lines)
+    return final_text
+
+
+def process_double_page(image, language):
+    width, height = image.size
+    left_page = image.crop((0, 0, width // 2, height))
+    right_page = image.crop((width // 2, 0, width, height))
+
+    left_text = pytesseract.image_to_string(left_page, lang=language)
+    right_text = pytesseract.image_to_string(right_page, lang=language)
+
+    final_text = left_text + "\n" + right_text
+    return final_text
 
 
 def update_status(current, total):
@@ -59,7 +90,8 @@ def convert_pdf():
         messagebox.showerror(
             "Error", "Please specify both PDF and output file paths.")
         return
-    pdf_to_text(pdf_path, output_path, combo_language.get().lower())
+    pdf_to_text(pdf_path, output_path,
+                combo_language.get().lower(), combo_layout.get())
 
 
 root = tk.Tk()
@@ -93,7 +125,11 @@ button_convert.pack(side=tk.LEFT)
 combo_language = ttk.Combobox(
     frame_action, values=["ENG", "CHI_SIM", "CHI_TRA"], state="readonly")
 combo_language.set("ENG")
-combo_language.pack(side=tk.RIGHT)
+combo_language.pack(side=tk.LEFT, padx=5)
+combo_layout = ttk.Combobox(frame_action, values=[
+                            "horizontal", "vertical", "double_page"], state="readonly")
+combo_layout.set("horizontal")
+combo_layout.pack(side=tk.RIGHT, padx=5)
 
 status_var = tk.StringVar()
 status_var.set("Ready")

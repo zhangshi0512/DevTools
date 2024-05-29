@@ -4,11 +4,14 @@ import tkinter as tk
 from tkinter import filedialog, Text, scrolledtext, simpledialog
 from dotenv import load_dotenv
 
-from langchain.langchain_utils import LangChainUtilities
-from generative_model.generate import ResponseGenerator
-from retrieval_system.search import DocumentRetriever
-from retrieval_system.index import DocumentIndexer
+# Add the parent directory to the Python module search path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
+
 from pdf_processing.pdf_to_text import extract_text_or_ocr
+from retrieval_system.index import DocumentIndexer
+from retrieval_system.search import DocumentRetriever
+from generative_model.generate import ResponseGenerator
+from langchain.langchain_utils import LangChainUtilities
 
 
 class ChatApp:

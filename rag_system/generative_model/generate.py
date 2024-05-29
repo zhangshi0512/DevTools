@@ -1,5 +1,6 @@
+import os
 import requests
-
+from dotenv import load_dotenv
 
 class ResponseGenerator:
     def __init__(self, api_key):
@@ -41,9 +42,14 @@ class ResponseGenerator:
             return ""
 
 
-# Usage example
-# Replace this with your actual DeepSeek API key
-api_key = "sk-f2506c6d78c3476bbbf24b6e729c0db8"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the API key from environment variable
+api_key = os.getenv("DEEPSEEK_API_KEY")
+if not api_key:
+    raise ValueError("No API key found. Please set DEEPSEEK_API_KEY in your .env file.")
+
 response_generator = ResponseGenerator(api_key)
 
 # Generate a response based on a user's prompt

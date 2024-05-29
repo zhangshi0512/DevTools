@@ -1,11 +1,14 @@
+import os
+import sys
 import tkinter as tk
 from tkinter import filedialog, Text, scrolledtext, simpledialog
-from pdf_processing.pdf_to_text import extract_text_or_ocr
-from retrieval_system.index import DocumentIndexer
-from retrieval_system.search import DocumentRetriever
-from generative_model.generate import ResponseGenerator
+from dotenv import load_dotenv
+
 from langchain.langchain_utils import LangChainUtilities
-import os
+from generative_model.generate import ResponseGenerator
+from retrieval_system.search import DocumentRetriever
+from retrieval_system.index import DocumentIndexer
+from pdf_processing.pdf_to_text import extract_text_or_ocr
 
 
 class ChatApp:
@@ -13,9 +16,15 @@ class ChatApp:
         self.root = root
         self.root.title("Chat With Files")
 
+        # Load environment variables from .env file
+        load_dotenv()
+        # Get the API key from environment variable
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "No API key found. Please set DEEPSEEK_API_KEY in your .env file.")
+
         self.document_indexer = DocumentIndexer()  # Initialize DocumentIndexer
-        # Replace this with your actual Perplexity API key
-        api_key = "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"
         # Initialize ResponseGenerator with API key
         self.response_generator = ResponseGenerator(api_key)
         self.langchain_utils = LangChainUtilities()  # Initialize LangChainUtilities
@@ -80,8 +89,12 @@ class ChatApp:
         self.chat_area.pack(expand=True, fill='both')
 
 
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
     app = ChatApp(root)
     app.setup_ui()
     root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

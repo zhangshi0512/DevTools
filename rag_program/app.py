@@ -3,33 +3,27 @@ from tkinter import filedialog, scrolledtext, messagebox
 import PyPDF2
 import docx
 import markdown
-from transformers import AutoTokenizer, AutoModel
 import torch
 from sentence_transformers import util
-import requests
-import json
 import os
-from openai import OpenAI, OpenAIError
+import numpy as np
+import ollama
+from transformers import AutoTokenizer, AutoModel
 
 
 class RAGProgram:
-    def __init__(self, master):
+    def __init__(self, master, ollama_api_base_url):
         self.master = master
         self.master.title("RAG Chat Program")
         self.master.geometry("800x600")
 
         self.documents = []
         self.embeddings = []
+        self.ollama_api_base_url = ollama_api_base_url
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            "sentence-transformers/all-MiniLM-L6-v2")
-        self.model = AutoModel.from_pretrained(
-            "sentence-transformers/all-MiniLM-L6-v2")
-
+        self.tokenizer = None
+        self.embedding_model = None
         self.use_external_llm = False
-        self.api_endpoint = ""
-        self.api_key = ""
-        self.model_name = ""
 
         self.create_widgets()
         self.create_menu()
@@ -38,6 +32,11 @@ class RAGProgram:
         self.file_button = tk.Button(
             self.master, text="Upload Documents", command=self.upload_documents)
         self.file_button.pack(pady=10)
+
+        self.process_all_button = tk.Button(
+            self.master, text="Process All Documents", command=self.process_all_documents)
+        # New button for processing all documents
+        self.process_all_button.pack(pady=10)
 
         self.chat_history = scrolledtext.ScrolledText(
             self.master, wrap=tk.WORD, width=80, height=20)
@@ -51,6 +50,22 @@ class RAGProgram:
         self.send_button = tk.Button(
             self.master, text="Send", command=self.process_input)
         self.send_button.pack()
+
+        self.model_dropdown = tk.OptionMenu(
+            self.master, tk.StringVar(), *["phi3:latest"])
+        self.model_dropdown.pack(pady=10)
+
+    def process_all_documents(self):
+        if not self.documents:
+            self.update_chat_history(
+                "Bot: Please upload some documents first.")
+            return
+
+        all_contents = " ".join(self.documents)
+        summary = self.ollama_summarize('phi3:latest', all_contents)
+
+        self.update_chat_history(
+            f"Bot: Summary of all documents:\n\n{summary}")
 
     def create_menu(self):
         menubar = tk.Menu(self.master)
@@ -72,35 +87,14 @@ class RAGProgram:
         tk.Checkbutton(settings_window, variable=use_external_var).grid(
             row=0, column=1, padx=5, pady=5)
 
-        tk.Label(settings_window, text="API Endpoint:").grid(
-            row=1, column=0, padx=5, pady=5)
-        api_endpoint_entry = tk.Entry(settings_window, width=30)
-        api_endpoint_entry.grid(row=1, column=1, padx=5, pady=5)
-        api_endpoint_entry.insert(0, self.api_endpoint)
-
-        tk.Label(settings_window, text="API Key:").grid(
-            row=2, column=0, padx=5, pady=5)
-        api_key_entry = tk.Entry(settings_window, width=30, show="*")
-        api_key_entry.grid(row=2, column=1, padx=5, pady=5)
-        api_key_entry.insert(0, self.api_key)
-
-        tk.Label(settings_window, text="Model Name:").grid(
-            row=3, column=0, padx=5, pady=5)
-        model_name_entry = tk.Entry(settings_window, width=30)
-        model_name_entry.grid(row=3, column=1, padx=5, pady=5)
-        model_name_entry.insert(0, self.model_name)
-
         def save_settings():
             self.use_external_llm = use_external_var.get()
-            self.api_endpoint = api_endpoint_entry.get()
-            self.api_key = api_key_entry.get()
-            self.model_name = model_name_entry.get()
             settings_window.destroy()
             messagebox.showinfo(
                 "Settings Saved", "LLM settings have been updated.")
 
         tk.Button(settings_window, text="Save", command=save_settings).grid(
-            row=4, column=0, columnspan=2, pady=10)
+            row=1, column=0, columnspan=2, pady=10)
 
     def upload_documents(self):
         file_paths = filedialog.askopenfilenames(filetypes=[
@@ -112,9 +106,10 @@ class RAGProgram:
 
         for file_path in file_paths:
             content = self.read_file(file_path)
-            self.documents.append(content)
-            embedding = self.get_embedding(content)
-            self.embeddings.append(embedding)
+            if content:
+                self.documents.append(content)
+                embedding = self.get_embedding(content)
+                self.embeddings.append(embedding)
 
         self.update_chat_history(f"Uploaded {len(file_paths)} documents.")
 
@@ -122,8 +117,17 @@ class RAGProgram:
         _, file_extension = os.path.splitext(file_path)
 
         if file_extension == '.txt':
-            with open(file_path, 'r', encoding='utf-8') as file:
-                return file.read()
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    return file.read()
+            except UnicodeDecodeError:
+                try:
+                    with open(file_path, 'r', encoding='latin-1') as file:
+                        return file.read()
+                except UnicodeDecodeError:
+                    messagebox.showerror(
+                        "File Error", "Cannot decode the file. Please ensure it's encoded in UTF-8 or Latin-1.")
+                    return ""
         elif file_extension == '.pdf':
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
@@ -132,17 +136,34 @@ class RAGProgram:
             doc = docx.Document(file_path)
             return ' '.join([paragraph.text for paragraph in doc.paragraphs])
         elif file_extension == '.md':
-            with open(file_path, 'r', encoding='utf-8') as file:
-                md_content = file.read()
-                return markdown.markdown(md_content)
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    md_content = file.read()
+                    return markdown.markdown(md_content)
+            except UnicodeDecodeError:
+                try:
+                    with open(file_path, 'r', encoding='latin-1') as file:
+                        md_content = file.read()
+                        return markdown.markdown(md_content)
+                except UnicodeDecodeError:
+                    messagebox.showerror(
+                        "File Error", "Cannot decode the file. Please ensure it's encoded in UTF-8 or Latin-1.")
+                    return ""
         else:
-            return "Unsupported file format"
+            messagebox.showerror("File Error", "Unsupported file format")
+            return ""
 
     def get_embedding(self, text):
+        if not self.tokenizer or not self.embedding_model:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                "sentence-transformers/all-MiniLM-L6-v2")
+            self.embedding_model = AutoModel.from_pretrained(
+                "sentence-transformers/all-MiniLM-L6-v2")
+
         inputs = self.tokenizer(text, return_tensors="pt",
                                 truncation=True, max_length=512, padding=True)
         with torch.no_grad():
-            outputs = self.model(**inputs)
+            outputs = self.embedding_model(**inputs)
         return outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
 
     def process_input(self, event=None):
@@ -171,41 +192,34 @@ class RAGProgram:
 
     def get_external_llm_response(self, query, context):
         try:
-            client = OpenAI(
-                base_url=self.api_endpoint,
-                api_key=self.api_key,
-            )
-            completion = client.chat.completions.create(
-                extra_headers={
-                    "HTTP-Referer": "https://your-site-url.com",  # Optional
-                    "X-Title": "Your App Name",  # Optional
-                },
-                model=self.model_name,
+            response = ollama.chat(
+                model='phi3:latest',
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant. Use the provided context to answer the user's query."
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Context: {context}\n\nQuery: {query}"
-                    },
-                ],
+                    {"role": "system", "content": "You are a helpful assistant. Use the provided context to answer the user's query."},
+                    {"role": "user", "content": f"Context: {context}\n\nQuery: {query}"}
+                ]
             )
-            return completion.choices[0].message.content
-        except OpenAIError as e:
+            if 'message' in response and 'content' in response['message']:
+                return response['message']['content']
+            else:
+                return f"Unexpected response format: {response}"
+        except Exception as e:
             return f"Error in API call: {str(e)}"
 
     def generate_internal_response(self, query, context):
-        summary = self.summarize_text(context)
+        model_name = 'phi3:latest'  # Default model for demonstration purposes
+        summary = self.ollama_summarize(model_name, context)
         return f"Based on the document, here is the summary:\n\n{summary}"
 
-    def summarize_text(self, text):
-        inputs = self.tokenizer(text, return_tensors="pt",
-                                max_length=1024, truncation=True)
-        summary_ids = self.model.generate(
-            inputs["input_ids"], max_length=150, min_length=40, length_penalty=2.0, num_beams=4, early_stopping=True)
-        return self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    def ollama_summarize(self, model_name, context):
+        try:
+            response = ollama.generate(model=model_name, prompt=context)
+            if 'message' in response and 'content' in response['message']:
+                return response['message']['content']
+            else:
+                return f"Unexpected response format: {response}"
+        except Exception as e:
+            return f"Error in API call: {str(e)}"
 
     def update_chat_history(self, message):
         self.chat_history.config(state=tk.NORMAL)
@@ -216,5 +230,6 @@ class RAGProgram:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = RAGProgram(root)
+    OLLAMA_API_BASE_URL = "http://localhost:11434/api"
+    app = RAGProgram(root, OLLAMA_API_BASE_URL)
     root.mainloop()

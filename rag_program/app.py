@@ -207,7 +207,7 @@ class RAGProgram:
             return f"Error in API call: {str(e)}"
 
     def generate_internal_response(self, query, context):
-        model_name = 'phi3:latest'  # Default model for demonstration purposes
+        model_name = 'qwen2:latest'  # Default model for demonstration purposes
         summary = self.ollama_summarize(model_name, context)
         return f"Based on the document, here is the summary:\n\n{summary}"
 

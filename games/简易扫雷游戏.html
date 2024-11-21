@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>简易扫雷游戏</title>
+<style>
+  table {
+    border-collapse: collapse;
+    margin: auto;
+  }
+  td {
+    width: 30px;
+    height: 30px;
+    text-align: center;
+    vertical-align: middle;
+    border: 1px solid #ccc;
+    cursor: pointer;
+  }
+  .hidden {
+    background-color: #eee;
+  }
+  .revealed {
+    background-color: #fff;
+  }
+  .mine {
+    color: red;
+  }
+  .flagged {
+    background-image: url('https://img.alicdn.com/tfs/TB1ZV76QXXXXXbCXFXXXXXXXXXX-24-24.png');
+    background-size: cover;
+  }
+</style>
+</head>
+<body>
+
+<table id="minefield"></table>
+
+<script>
+const rows = 10;
+const cols = 10;
+const mineCount = 15;
+
+let board = [];
+let revealedCells = 0;
+let gameOver = false;
+
+function createBoard() {
+  board = Array.from({ length: rows }, () => Array(cols).fill(0));
+  let minesPlaced = 0;
+
+  while (minesPlaced < mineCount) {
+    const row = Math.floor(Math.random() * rows);
+    const col = Math.floor(Math.random() * cols);
+    if (!board[row][col]) {
+      board[row][col] = -1;
+      minesPlaced++;
+    }
+  }
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] !== -1) {
+        board[r][c] = countMines(r, c);
+      }
+    }
+  }
+}
+
+function countMines(row, col) {
+  let count = 0;
+  for (let i = -1; i <= 1; i++) {
+    for (let j = -1; j <= 1; j++) {
+      const newRow = row + i;
+      const newCol = col + j;
+      if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols && board[newRow][newCol] === -1) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+function renderBoard() {
+  const minefield = document.getElementById('minefield');
+  minefield.innerHTML = '';
+  for (let r = 0; r < rows; r++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < cols; c++) {
+      const td = document.createElement('td');
+      td.classList.add('hidden');
+      td.addEventListener('click', () => revealCell(r, c));
+      td.addEventListener('contextmenu', (e) => toggleFlag(e, r, c), false);
+      tr.appendChild(td);
+    }
+    minefield.appendChild(tr);
+  }
+}
+
+function revealCell(row, col) {
+  if (gameOver || !document.querySelector(`#minefield tr:nth-child(${row + 1}) td:nth-child(${col + 1})`).classList.contains('hidden')) {
+    return;
+  }
+
+  const cell = document.querySelector(`#minefield tr:nth-child(${row + 1}) td:nth-child(${col + 1})`);
+  cell.classList.remove('hidden');
+  cell.classList.add('revealed');
+
+  if (board[row][col] === -1) {
+    cell.textContent = '💣';
+    cell.classList.add('mine');
+    gameOver = true;
+    alert('Game Over! You hit a mine.');
+    revealAllMines();
+  } else if (board[row][col] > 0) {
+    cell.textContent = board[row][col];
+  } else {
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        const newRow = row + i;
+        const newCol = col + j;
+        if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols) {
+          revealCell(newRow, newCol);
+        }
+      }
+    }
+  }
+
+  revealedCells++;
+  if (revealedCells === rows * cols - mineCount) {
+    gameOver = true;
+    alert('Congratulations! You won!');
+  }
+}
+
+function toggleFlag(event, row, col) {
+  event.preventDefault();
+  const cell = document.querySelector(`#minefield tr:nth-child(${row + 1}) td:nth-child(${col + 1})`);
+  if (cell.classList.contains('hidden') && !cell.classList.contains('flagged')) {
+    cell.classList.add('flagged');
+  } else if (cell.classList.contains('flagged')) {
+    cell.classList.remove('flagged');
+  }
+}
+
+function revealAllMines() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] === -1) {
+        const cell = document.querySelector(`#minefield tr:nth-child(${r + 1}) td:nth-child(${c + 1})`);
+        cell.classList.remove('hidden');
+        cell.classList.add('revealed');
+        cell.classList.add('mine');
+        cell.textContent = '💣';
+      }
+    }
+  }
+}
+
+createBoard();
+renderBoard();
+</script>
+
+</body>
+</html>

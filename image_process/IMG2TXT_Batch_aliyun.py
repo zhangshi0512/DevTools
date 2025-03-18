@@ -62,6 +62,9 @@ def create_batch_jsonl(image_files, api_model, max_tokens):
         if not processed_data:
             continue
         img_base = base64.b64encode(processed_data).decode('utf-8')
+        url_value = f"data:image/jpeg;base64,{img_base}"
+        # 调试打印生成的 URL（仅打印前100字符）
+        print(f"生成的 image_url for {base_name} 前100字符: {url_value[:100]}...")
         request_obj = {
             "custom_id": base_name,
             "method": "POST",
@@ -73,9 +76,9 @@ def create_batch_jsonl(image_files, api_model, max_tokens):
                     {
                         "role": "user",
                         "content": [
-                            {"type": "image_url", "image_url": {
-                                "url": f"data:image/jpeg;base64,{img_base}"}},
-                            {"type": "text", "text": "请将图中的表格信息转换为 Markdown 格式"}
+                            {"type": "image_url", "image_url": {"url": url_value}},
+                            {"type": "text",
+                             "text": "请将文件中的信息转换为 Markdown 格式，文本提取：提取所有文本内容，保持逻辑流程和层次结构。表格：识别并提取所有表格，维持其结构和数据完整性。尤其注意表格中的特殊格式，当表格中存在合并单元格时，注意这些合并的单元格通常代表大类信息。请将合并的单元格拆分为普通单元格，并在拆分后对应的每一行中填入该大类信息，确保信息完整无遗漏。当表格中的一个单元格里存在多条信息时，注意使用<br>来进行换行，但你无需把单元格拆分。如果文件中包含多个表格，保持每个表格的Markdown块独立，并在可能的情况下，在前面加上清晰的标题或副标题。不要试图对文本内容进行总结和压缩，你应当完全基于原有的文档内容进行转换输出。"}
                         ]
                     }
                 ]
@@ -106,7 +109,6 @@ def download_file_v1(file_id, api_key, base_url):
 
 
 def create_batch_job_v1(input_file_id, api_key, base_url, endpoint, completion_window="24h"):
-    """使用 requests 创建 Batch 任务"""
     url = f"{base_url}/batches"
     headers = {"Authorization": f"Bearer {api_key}",
                "Content-Type": "application/json"}
@@ -116,7 +118,11 @@ def create_batch_job_v1(input_file_id, api_key, base_url, endpoint, completion_w
         "completion_window": completion_window
     }
     response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        print("Batch creation error response:", response.text)
+        raise e
     return response.json()
 
 
